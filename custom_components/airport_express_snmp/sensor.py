@@ -17,11 +17,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import (
-    CONNECTION_NETWORK_MAC,
-    DeviceInfo,
-    format_mac,
-)
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -42,6 +38,7 @@ from .const import (
     SCOPE_CORE,
 )
 from .coordinator import AirPortSnmpCoordinator
+from .helpers import build_client_device_info
 
 
 def _ap_device_info(coordinator: AirPortSnmpCoordinator) -> DeviceInfo:
@@ -53,16 +50,6 @@ def _ap_device_info(coordinator: AirPortSnmpCoordinator) -> DeviceInfo:
         model=f"AirPort Express A1392 (ID {data.get('model_id', '1771')})",
         sw_version=data.get("firmware", "7.8.1"),
         configuration_url=f"http://{coordinator.host}",
-    )
-
-
-def _client_device_info(coordinator: AirPortSnmpCoordinator, mac: str) -> DeviceInfo:
-    formatted_mac = format_mac(mac)
-    return DeviceInfo(
-        identifiers={(DOMAIN, f"client_{formatted_mac}")},
-        connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
-        name=f"AirPort Client {mac}",
-        via_device=(DOMAIN, coordinator.host),
     )
 
 
@@ -195,10 +182,10 @@ async def async_setup_entry(
                     tracked_diag_macs.add(mac)
                     new_diag.extend(
                         [
-                            AirPortClientRssiSensor(coordinator, mac),
-                            AirPortClientSnrSensor(coordinator, mac),
-                            AirPortClientRateSensor(coordinator, mac),
-                            AirPortClientIpSensor(coordinator, mac),
+                            AirPortClientRssiSensor(hass, coordinator, mac),
+                            AirPortClientSnrSensor(hass, coordinator, mac),
+                            AirPortClientRateSensor(hass, coordinator, mac),
+                            AirPortClientIpSensor(hass, coordinator, mac),
                         ]
                     )
             if new_diag:
@@ -319,10 +306,12 @@ class AirPortClientDiagnosticSensor(
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AirPortSnmpCoordinator, mac: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
+    ) -> None:
         super().__init__(coordinator)
         self._mac = mac
-        self._attr_device_info = _client_device_info(coordinator, mac)
+        self._attr_device_info = build_client_device_info(hass, coordinator, mac)
 
     @property
     def available(self) -> bool:
@@ -339,8 +328,10 @@ class AirPortClientRssiSensor(AirPortClientDiagnosticSensor):
     _attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: AirPortSnmpCoordinator, mac: str) -> None:
-        super().__init__(coordinator, mac)
+    def __init__(
+        self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
+    ) -> None:
+        super().__init__(hass, coordinator, mac)
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_rssi"
 
@@ -358,8 +349,10 @@ class AirPortClientSnrSensor(AirPortClientDiagnosticSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:signal-cellular-3"
 
-    def __init__(self, coordinator: AirPortSnmpCoordinator, mac: str) -> None:
-        super().__init__(coordinator, mac)
+    def __init__(
+        self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
+    ) -> None:
+        super().__init__(hass, coordinator, mac)
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_snr"
 
@@ -378,8 +371,10 @@ class AirPortClientRateSensor(AirPortClientDiagnosticSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:speedometer"
 
-    def __init__(self, coordinator: AirPortSnmpCoordinator, mac: str) -> None:
-        super().__init__(coordinator, mac)
+    def __init__(
+        self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
+    ) -> None:
+        super().__init__(hass, coordinator, mac)
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_rate"
 
@@ -396,8 +391,10 @@ class AirPortClientIpSensor(AirPortClientDiagnosticSensor):
     _attr_icon = "mdi:ip-network"
     _attr_entity_registry_enabled_default = False
 
-    def __init__(self, coordinator: AirPortSnmpCoordinator, mac: str) -> None:
-        super().__init__(coordinator, mac)
+    def __init__(
+        self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
+    ) -> None:
+        super().__init__(hass, coordinator, mac)
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_ip"
 

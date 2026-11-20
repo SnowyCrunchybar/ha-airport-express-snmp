@@ -21,10 +21,10 @@ A lightweight, local-polling Home Assistant custom integration for monitoring an
   - **Step 1:** Enter IP address, SNMP Community string, and polling interval (default `15` s).
   - **Step 2 (also editable later via Configure):**
     - **Monitored Interfaces:** Choose between *Core interfaces only (`WAN eth0`, `Wi-Fi 2.4 GHz wlan0`, `Wi-Fi 5 GHz wlan1`)* or *All interfaces (`WAN`, `LAN`, `2.4 GHz`, `5 GHz`, `Bridge`)*.
-    - **Base Station System Info:** Uptime (`s`), connected Wi-Fi client count (`clients` + full client list with MAC, IP, RSSI, noise, SNR, link rate, and connection duration in entity attributes), and active DHCP lease count.
+    - **Base Station System Info:** Uptime (`s`), connected Wi-Fi client count (`clients` + full client list with MAC, IP, hostname, RSSI, noise, SNR, link rate, and connection duration in entity attributes), and active DHCP lease count.
     - **Interface Data Rates (`Mbit/s`):** Real-time download and upload throughput with 32-bit counter rollover protection.
     - **Interface Traffic Totals & Status:** Cumulative byte counters (`B`), interface operational status, and diagnostic packet error counters (disabled by default).
-    - **Client Presence Tracking (`device_tracker`):** Automatically links connected Wi-Fi clients via MAC address (`CONNECTION_NETWORK_MAC`) to existing Home Assistant devices (*Connected devices*).
+    - **Client Presence Tracking (`device_tracker`) & Automatic Device Naming:** Automatically links connected Wi-Fi clients via MAC address (`CONNECTION_NETWORK_MAC`) to existing Home Assistant devices (*Connected devices*) and resolves human-readable device names from the Home Assistant Device Registry or DHCP hostname.
     - **Client Technical Wi-Fi Diagnostics:** Per-client **RSSI (`dBm`)**, **SNR (`dB`)**, and **Link Rate (`Mbit/s`)** diagnostic sensors attached directly to each client's device page, plus a per-client **IP Address** diagnostic sensor (created disabled by default so you can enable it only for specific devices like local-control iPads).
 
 ### Installation
@@ -58,10 +58,10 @@ Kevyt, täysin paikallinen Home Assistant -integraatio **Apple AirPort Express (
   - **Vaihe 1:** Syötä tukiaseman IP-osoite, SNMP Community -tunnus ja päivitysväli sekunteina (oletus `15` s).
   - **Vaihe 2 (muokattavissa myös jälkikäteen *Määritä*-painikkeesta):**
     - **Seurattavat verkkoliitännät:** Valitse *Vain tärkeimmät (`WAN eth0`, `Wi-Fi 2.4 GHz wlan0`, `Wi-Fi 5 GHz wlan1`)* tai *Kaikki liitännät (`WAN`, `LAN`, `2.4 GHz`, `5 GHz`, `Silta`)*.
-    - **Tukiaseman yleiset tiedot:** Käyttöaika (`s`), yhdistettyjen Wi-Fi-asiakkaiden lukumäärä (`kpl` + täysi asiakaslista MAC-, IP-, RSSI-, kohina-, SNR-, linkkinopeus- ja yhteyden kestotietoineen attribuuteissa) sekä aktiiviset DHCP-vuokrat (`kpl`).
+    - **Tukiaseman yleiset tiedot:** Käyttöaika (`s`), yhdistettyjen Wi-Fi-asiakkaiden lukumäärä (`kpl` + täysi asiakaslista MAC-, IP-, nimi-, RSSI-, kohina-, SNR-, linkkinopeus- ja yhteyden kestotietoineen attribuuteissa) sekä aktiiviset DHCP-vuokrat (`kpl`).
     - **Liitäntöjen siirtonopeudet (`Mbit/s`):** Reaaliaikainen lataus- ja lähetysnopeus 32-bittisen laskurin ylivuotosuojauksella.
     - **Liitäntöjen kokonaisliikenne ja tila:** Kumulatiiviset tavulaskurit (`B`), liitännän tila (`Yhdistetty` / `Katkaistu`) sekä diagnostiikan virhepakettilaskurit (oletuksena pois päältä).
-    - **Laitteiden läsnäoloseuranta (`device_tracker`):** Linkittää yhdistetyt Wi-Fi-laitteet automaattisesti MAC-osoitteella (`CONNECTION_NETWORK_MAC`) olemassa oleviin Home Assistant -laitteisiin (*Yhdistetyt laitteet* -osioon).
+    - **Laitteiden läsnäoloseuranta (`device_tracker`) ja automaattinen nimeäminen:** Linkittää yhdistetyt Wi-Fi-laitteet automaattisesti MAC-osoitteella (`CONNECTION_NETWORK_MAC`) olemassa oleviin Home Assistant -laitteisiin (*Yhdistetyt laitteet* -osioon) ja hakee laitteille selkokieliset nimet suoraan Home Assistantin laiterekisteristä tai DHCP-tiedosta.
     - **Laitteiden tekniset Wi-Fi-tiedot:** Laitekohtaiset **Signaali RSSI (`dBm`)**, **SNR (`dB`)** ja **Linkkinopeus (`Mbit/s`)** -diagnostiikkasensorit suoraan kunkin laitteen tietosivun alle, sekä laitekohtainen **IP-osoite**-diagnostiikkasensori (luodaan oletuksena pois päältä, jotta voit aktivoida sen vain haluamillesi laitteille, kuten paikallisohjauksessa olevalle iPadille).
 
 ### Asennus

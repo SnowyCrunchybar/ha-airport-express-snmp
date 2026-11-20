@@ -381,6 +381,7 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "out_errors": out_errors,
             }
 
+        # Walk DHCP table (MAC -> IP, Hostname/Client-ID & Lease)
         dhcp_rows = await _snmp_walk(self.host, self.community, OID_AP_DHCP_BASE)
         dhcp_map: dict[str, dict[str, Any]] = {}
         for oid_str, val in dhcp_rows:
@@ -392,11 +393,14 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 entry["mac"] = str(val).upper()
             elif col == "2":
                 entry["ip"] = str(val)
+            elif col == "3" and isinstance(val, str):
+                entry["hostname"] = val.strip()
             elif col == "4":
                 entry["lease_remaining"] = int(val)
 
         mac_to_dhcp = {v["mac"]: v for v in dhcp_map.values() if "mac" in v}
 
+        # Walk active Wi-Fi clients
         client_rows = await _snmp_walk(
             self.host, self.community, OID_AP_CLIENT_BASE
         )
@@ -431,6 +435,7 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             client_data = {
                 "mac": mac,
                 "ip": dhcp_info.get("ip"),
+                "hostname": dhcp_info.get("hostname"),
                 "rssi_dbm": rssi,
                 "noise_dbm": noise,
                 "snr_db": snr,
