@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AirPort Express SNMP",
+        "description": "Syötä AirPort Expressin IP-osoite ja SNMP-yhteisötunnus.",
+        "data": {
+          "host": "IP-osoite",
+          "community": "SNMP Community",
+          "scan_interval": "Päivitysväli (sekuntia)",
+          "track_clients": "Luo Device Tracker -entiteetit Wi-Fi-asiakkaille"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Yhteys AirPort Expressiin epäonnistui (tarkista IP ja SNMP-asetus).",
+      "unknown": "Odottamaton virhe."
+    },
+    "abort": {
+      "already_configured": "Laite on jo määritetty."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AirPort Express SNMP -asetukset",
+        "data": {
+          "community": "SNMP Community",
+          "scan_interval": "Päivitysväli (sekuntia)",
+          "track_clients": "Luo Device Tracker -entiteetit Wi-Fi-asiakkaille"
+        }
+      }
+    }
+  }
+}
