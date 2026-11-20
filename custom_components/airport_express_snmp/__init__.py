@@ -8,7 +8,6 @@ from homeassistant.core import HomeAssistant
 from .const import (
     CONF_COMMUNITY,
     CONF_SCAN_INTERVAL,
-    DEFAULT_COMMUNITY,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -21,7 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AirPort Express SNMP from a config entry."""
     host = entry.data[CONF_HOST]
     community = entry.options.get(
-        CONF_COMMUNITY, entry.data.get(CONF_COMMUNITY, DEFAULT_COMMUNITY)
+        CONF_COMMUNITY, entry.data[CONF_COMMUNITY]
     )
     scan_interval = entry.options.get(
         CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)

@@ -13,8 +13,6 @@ from .const import (
     CONF_COMMUNITY,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_CLIENTS,
-    DEFAULT_COMMUNITY,
-    DEFAULT_HOST,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_CLIENTS,
     DOMAIN,
@@ -55,8 +53,8 @@ class AirPortExpressSnmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
-                vol.Required(CONF_COMMUNITY, default=DEFAULT_COMMUNITY): str,
+                vol.Required(CONF_HOST): str,
+                vol.Required(CONF_COMMUNITY): str,
                 vol.Required(
                     CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
                 ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
@@ -95,7 +93,7 @@ class AirPortExpressOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Required(
                     CONF_COMMUNITY,
-                    default=current.get(CONF_COMMUNITY, DEFAULT_COMMUNITY),
+                    default=current.get(CONF_COMMUNITY, ""),
                 ): str,
                 vol.Required(
                     CONF_SCAN_INTERVAL,
