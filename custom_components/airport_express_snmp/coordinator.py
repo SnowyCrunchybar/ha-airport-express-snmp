@@ -6,16 +6,30 @@ import logging
 import time
 from typing import Any
 
-from pysnmp.hlapi.v3arch.asyncio import (
-    CommunityData,
-    ContextData,
-    ObjectIdentity,
-    ObjectType,
-    SnmpEngine,
-    UdpTransportTarget,
-    get_cmd,
-    next_cmd,
-)
+try:
+    from pysnmp.hlapi.v3arch.asyncio import (
+        CommunityData,
+        ContextData,
+        ObjectIdentity,
+        ObjectType,
+        SnmpEngine,
+        UdpTransportTarget,
+        get_cmd as _get_cmd,
+        next_cmd as _next_cmd,
+    )
+    _USE_V3ARCH = True
+except ImportError:
+    from pysnmp.hlapi.asyncio import (  # type: ignore[no-redef]
+        CommunityData,
+        ContextData,
+        ObjectIdentity,
+        ObjectType,
+        SnmpEngine,
+        UdpTransportTarget,
+        getCmd as _get_cmd,
+        nextCmd as _next_cmd,
+    )
+    _USE_V3ARCH = False
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -43,13 +57,20 @@ _LOGGER = logging.getLogger(__name__)
 MAX_32BIT = 4294967296
 
 
+async def _make_target(host: str) -> UdpTransportTarget:
+    """Create UDP transport target across pysnmp versions."""
+    if hasattr(UdpTransportTarget, "create"):
+        return await UdpTransportTarget.create((host, 161), timeout=3.0, retries=1)
+    return UdpTransportTarget((host, 161), timeout=3.0, retries=1)
+
+
 async def _snmp_get(
     engine: SnmpEngine, host: str, community: str, oids: list[str]
 ) -> dict[str, Any]:
     """Perform an async SNMP GET for a list of scalar OIDs."""
-    target = await UdpTransportTarget.create((host, 161), timeout=3.0, retries=1)
+    target = await _make_target(host)
     var_binds = [ObjectType(ObjectIdentity(oid)) for oid in oids]
-    error_indication, error_status, _, var_bind_table = await get_cmd(
+    error_indication, error_status, _, var_bind_table = await _get_cmd(
         engine,
         CommunityData(community, mpModel=1),
         target,
@@ -71,12 +92,12 @@ async def _snmp_walk(
     engine: SnmpEngine, host: str, community: str, base_oid: str
 ) -> list[tuple[str, Any]]:
     """Perform an async SNMP WALK under a base OID."""
-    target = await UdpTransportTarget.create((host, 161), timeout=3.0, retries=1)
+    target = await _make_target(host)
     results: list[tuple[str, Any]] = []
     current_oid = base_oid
 
     while True:
-        error_indication, error_status, _, var_bind_table = await next_cmd(
+        error_indication, error_status, _, var_bind_table = await _next_cmd(
             engine,
             CommunityData(community, mpModel=1),
             target,
@@ -87,7 +108,8 @@ async def _snmp_walk(
         if error_indication or error_status or not var_bind_table:
             break
 
-        oid_obj, val_obj = var_bind_table[0]
+        row = var_bind_table[0]
+        oid_obj, val_obj = row[0] if isinstance(row, list) else row
         oid_str = str(oid_obj)
         if not oid_str.startswith(base_oid + "."):
             break
