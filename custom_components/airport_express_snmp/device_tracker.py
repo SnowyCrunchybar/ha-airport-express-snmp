@@ -7,7 +7,11 @@ from homeassistant.components.device_tracker import SourceType
 from homeassistant.components.device_tracker.config_entry import ScannerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import (
+    CONNECTION_NETWORK_MAC,
+    DeviceInfo,
+    format_mac,
+)
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -21,10 +25,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up device trackers for connected Wi-Fi clients."""
-    track_enabled = entry.options.get(
-        CONF_TRACK_CLIENTS, entry.data.get(CONF_TRACK_CLIENTS, DEFAULT_TRACK_CLIENTS)
-    )
-    if not track_enabled:
+    opts = {**entry.data, **entry.options}
+    if not opts.get(CONF_TRACK_CLIENTS, DEFAULT_TRACK_CLIENTS):
         return
 
     coordinator: AirPortSnmpCoordinator = hass.data[DOMAIN][entry.entry_id]
@@ -45,20 +47,22 @@ async def async_setup_entry(
 
 
 class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEntity):
-    """Represent a Wi-Fi client connected to AirPort Express."""
+    """Represent a Wi-Fi client linked via MAC address to its HA device."""
 
     _attr_has_entity_name = True
 
     def __init__(self, coordinator: AirPortSnmpCoordinator, mac: str) -> None:
         super().__init__(coordinator)
         self._mac = mac
+        formatted_mac = format_mac(mac)
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}"
-        self._attr_name = f"AirPort Wi-Fi {mac}"
+        self._attr_name = f"Wi-Fi {mac}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.host)},
-            name=coordinator.data.get("name", "AirPort Express"),
-            manufacturer="Apple",
+            identifiers={(DOMAIN, f"client_{formatted_mac}")},
+            connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
+            name=f"AirPort Client {mac}",
+            via_device=(DOMAIN, coordinator.host),
         )
 
     @property
@@ -88,4 +92,5 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
             "snr_db": client.get("snr_db"),
             "rate_mbps": client.get("rate_mbps"),
             "connected_seconds": client.get("connected_seconds"),
+            "lease_remaining": client.get("lease_remaining"),
         }

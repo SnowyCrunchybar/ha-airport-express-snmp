@@ -372,7 +372,7 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             interfaces[if_name] = {
                 "index": idx,
                 "name": if_name,
-                "status": "Yhdistetty" if oper == 1 else "Katkaistu",
+                "status": "Connected" if oper == 1 else "Disconnected",
                 "in_bytes": in_bytes,
                 "out_bytes": out_bytes,
                 "rx_mbps": rx_mbps,
