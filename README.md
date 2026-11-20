@@ -15,7 +15,7 @@ HACS-yhteensopiva Home Assistant -integraatio Apple AirPort Express (A1392 / gen
 
 ## Käyttöönotto
 
-1. Ota **Salli SNMP** käyttöön AirPort-työkalussa (**Lisäasetukset > Lokit ja tilastot**) ja aseta SNMP-alueen tunnus (esim. `Helmi`).
+1. Ota **Salli SNMP** käyttöön AirPort-työkalussa (**Lisäasetukset > Lokit ja tilastot**) ja aseta SNMP-alueen tunnus (esim. `Home`).
 2. Lisää tämä repositorio HACS:iin (**Custom repositories > Integration**) ja asenna **AirPort Express SNMP**.
 3. Käynnistä Home Assistant uudelleen.
-4. Avaa **Asetukset > Laitteet ja palvelut > Lisää integraatio**, hae **AirPort Express SNMP** ja syötä tukiaseman IP-osoite (`10.0.1.1`) sekä SNMP Community (`Helmi`).
+4. Avaa **Asetukset > Laitteet ja palvelut > Lisää integraatio**, hae **AirPort Express SNMP** ja syötä tukiaseman IP-osoite (`10.0.1.1`) sekä SNMP Community (`Home`).
