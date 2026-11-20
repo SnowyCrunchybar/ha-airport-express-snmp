@@ -2,33 +2,57 @@
   "config": {
     "step": {
       "user": {
-        "title": "AirPort Express SNMP",
+        "title": "AirPort Express SNMP \u2014 Connection",
         "description": "Enter the IP address and SNMP community string of your AirPort Express.",
         "data": {
           "host": "IP Address",
           "community": "SNMP Community",
-          "scan_interval": "Scan interval (seconds)",
-          "track_clients": "Create Device Tracker entities for Wi-Fi clients"
+          "scan_interval": "Polling interval (seconds)"
+        }
+      },
+      "sensors": {
+        "title": "AirPort Express SNMP \u2014 Sensors & Tracking",
+        "description": "Select which sensors and client tracking features to create. You can change these anytime via Configure.",
+        "data": {
+          "interface_scope": "Monitored network interfaces",
+          "include_system": "Base station system sensors (uptime, Wi-Fi client count, DHCP leases)",
+          "include_rates": "Interface data rates (Mbit/s download & upload)",
+          "include_traffic_totals": "Interface traffic totals (bytes), status & packet errors",
+          "track_clients": "Track Wi-Fi clients (device_tracker linked via MAC address)",
+          "include_client_diagnostics": "Per-client technical Wi-Fi diagnostics (RSSI, SNR, link rate & optional IP)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to AirPort Express (check IP and SNMP settings).",
+      "cannot_connect": "Failed to connect to AirPort Express (check IP address and SNMP settings).",
       "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "Device is already configured."
+      "already_configured": "This AirPort Express is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "AirPort Express SNMP Options",
+        "title": "AirPort Express SNMP \u2014 Options",
         "data": {
           "community": "SNMP Community",
-          "scan_interval": "Scan interval (seconds)",
-          "track_clients": "Create Device Tracker entities for Wi-Fi clients"
+          "scan_interval": "Polling interval (seconds)",
+          "interface_scope": "Monitored network interfaces",
+          "include_system": "Base station system sensors (uptime, Wi-Fi client count, DHCP leases)",
+          "include_rates": "Interface data rates (Mbit/s download & upload)",
+          "include_traffic_totals": "Interface traffic totals (bytes), status & packet errors",
+          "track_clients": "Track Wi-Fi clients (device_tracker linked via MAC address)",
+          "include_client_diagnostics": "Per-client technical Wi-Fi diagnostics (RSSI, SNR, link rate & optional IP)"
         }
+      }
+    }
+  },
+  "selector": {
+    "interface_scope": {
+      "options": {
+        "core": "Core interfaces only (WAN, Wi-Fi 2.4 GHz & 5 GHz)",
+        "all": "All interfaces (WAN, LAN, Wi-Fi 2.4 GHz, 5 GHz & Bridge)"
       }
     }
   }

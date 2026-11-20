@@ -2,33 +2,57 @@
   "config": {
     "step": {
       "user": {
-        "title": "AirPort Express SNMP",
+        "title": "AirPort Express SNMP — Yhteys",
         "description": "Syötä AirPort Expressin IP-osoite ja SNMP-yhteisötunnus.",
         "data": {
           "host": "IP-osoite",
           "community": "SNMP Community",
-          "scan_interval": "Päivitysväli (sekuntia)",
-          "track_clients": "Luo Device Tracker -entiteetit Wi-Fi-asiakkaille"
+          "scan_interval": "Päivitysväli (sekuntia)"
+        }
+      },
+      "sensors": {
+        "title": "AirPort Express SNMP — Sensorit ja seuranta",
+        "description": "Valitse luotavat sensorit ja asiakasseuranta. Voit muuttaa valintoja myöhemmin Määritä-valikosta.",
+        "data": {
+          "interface_scope": "Seurattavat verkkoliitännät",
+          "include_system": "Tukiaseman yleiset tiedot (käyttöaika, Wi-Fi-asiakkaat, DHCP-vuokrat)",
+          "include_rates": "Liitäntöjen siirtonopeudet (Mbit/s lataus & lähetys)",
+          "include_traffic_totals": "Liitäntöjen kokonaisliikenne (tavua), tila ja virhepaketit",
+          "track_clients": "Laitteiden läsnäoloseuranta (device_tracker MAC-osoitteella)",
+          "include_client_diagnostics": "Laitteiden tekniset Wi-Fi-tiedot (RSSI, SNR, linkkinopeus ja valinnainen IP)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Yhteys AirPort Expressiin epäonnistui (tarkista IP ja SNMP-asetus).",
+      "cannot_connect": "Yhteys AirPort Expressiin epäonnistui (tarkista IP-osoite ja SNMP-asetus).",
       "unknown": "Odottamaton virhe."
     },
     "abort": {
-      "already_configured": "Laite on jo määritetty."
+      "already_configured": "Tämä AirPort Express on jo määritetty."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "AirPort Express SNMP -asetukset",
+        "title": "AirPort Express SNMP — Asetukset",
         "data": {
           "community": "SNMP Community",
           "scan_interval": "Päivitysväli (sekuntia)",
-          "track_clients": "Luo Device Tracker -entiteetit Wi-Fi-asiakkaille"
+          "interface_scope": "Seurattavat verkkoliitännät",
+          "include_system": "Tukiaseman yleiset tiedot (käyttöaika, Wi-Fi-asiakkaat, DHCP-vuokrat)",
+          "include_rates": "Liitäntöjen siirtonopeudet (Mbit/s lataus & lähetys)",
+          "include_traffic_totals": "Liitäntöjen kokonaisliikenne (tavua), tila ja virhepaketit",
+          "track_clients": "Laitteiden läsnäoloseuranta (device_tracker MAC-osoitteella)",
+          "include_client_diagnostics": "Laitteiden tekniset Wi-Fi-tiedot (RSSI, SNR, linkkinopeus ja valinnainen IP)"
         }
+      }
+    }
+  },
+  "selector": {
+    "interface_scope": {
+      "options": {
+        "core": "Vain tärkeimmät (WAN, Wi-Fi 2.4 GHz & 5 GHz)",
+        "all": "Kaikki liitännät (WAN, LAN, Wi-Fi 2.4 GHz, 5 GHz & Silta)"
       }
     }
   }

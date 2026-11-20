@@ -4,10 +4,23 @@ DOMAIN = "airport_express_snmp"
 
 CONF_COMMUNITY = "community"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_INTERFACE_SCOPE = "interface_scope"
+CONF_INCLUDE_SYSTEM = "include_system"
+CONF_INCLUDE_RATES = "include_rates"
+CONF_INCLUDE_TRAFFIC_TOTALS = "include_traffic_totals"
 CONF_TRACK_CLIENTS = "track_clients"
+CONF_INCLUDE_CLIENT_DIAGNOSTICS = "include_client_diagnostics"
+
+SCOPE_CORE = "core"
+SCOPE_ALL = "all"
 
 DEFAULT_SCAN_INTERVAL = 15
+DEFAULT_INTERFACE_SCOPE = SCOPE_CORE
+DEFAULT_INCLUDE_SYSTEM = True
+DEFAULT_INCLUDE_RATES = True
+DEFAULT_INCLUDE_TRAFFIC_TOTALS = False
 DEFAULT_TRACK_CLIENTS = True
+DEFAULT_INCLUDE_CLIENT_DIAGNOSTICS = False
 
 # Standard MIB-2 OIDs
 OID_SYS_DESCR = "1.3.6.1.2.1.1.1.0"
@@ -33,11 +46,12 @@ OID_AP_CLIENT_BASE = "1.3.6.1.4.1.63.501.3.2.2.1"
 OID_AP_NUM_DHCP = "1.3.6.1.4.1.63.501.3.3.1.0"
 OID_AP_DHCP_BASE = "1.3.6.1.4.1.63.501.3.3.2.1"
 
-# Friendly names for AirPort Express interfaces
+CORE_INTERFACES = {"eth0", "wlan0", "wlan1"}
+
 INTERFACE_LABELS = {
     "eth0": "WAN (eth0)",
     "eth1": "LAN (eth1)",
     "wlan0": "Wi-Fi 2.4 GHz (wlan0)",
     "wlan1": "Wi-Fi 5 GHz (wlan1)",
-    "bridge0": "Silta (bridge0)",
+    "bridge0": "Bridge (bridge0)",
 }
