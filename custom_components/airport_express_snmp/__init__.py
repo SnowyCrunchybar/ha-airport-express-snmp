@@ -4,6 +4,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .const import (
     CONF_COMMUNITY,
@@ -14,6 +15,23 @@ from .const import (
 from .coordinator import AirPortSnmpCoordinator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.DEVICE_TRACKER]
+
+
+def _cleanup_orphaned_client_devices(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove empty legacy client devices that no longer have any entities."""
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    for device in list(dev_reg.devices.values()):
+        if entry.entry_id not in device.config_entries:
+            continue
+        is_legacy_client = any(
+            len(ident) >= 2 and ident[0] == DOMAIN and str(ident[1]).startswith("client_")
+            for ident in device.identifiers
+        )
+        if not is_legacy_client:
+            continue
+        if not er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True):
+            dev_reg.async_remove_device(device.id)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -35,6 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _cleanup_orphaned_client_devices(hass, entry)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 

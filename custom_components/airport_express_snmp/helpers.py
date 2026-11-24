@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import (
     CONNECTION_NETWORK_MAC,
     DeviceInfo,
@@ -13,19 +13,26 @@ from .const import DOMAIN
 from .coordinator import AirPortSnmpCoordinator
 
 
+def _is_own_client_device(device: dr.DeviceEntry, formatted_mac: str) -> bool:
+    """Return True if this device is our own AirPort client device."""
+    target = (DOMAIN, f"client_{formatted_mac}")
+    return any(ident[:2] == target for ident in device.identifiers)
+
+
 def _find_existing_ha_device(
     hass: HomeAssistant,
     formatted_mac: str,
     mdns_name: str | None,
     ip: str | None,
 ) -> dr.DeviceEntry | None:
-    """Find an existing HA device by MAC, OpenBeken configuration_url, or mDNS name."""
+    """Find an existing HA device by MAC, OpenBeken URL/IP sensor, or mDNS name."""
     dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
     mdns_lower = (mdns_name or "").strip().lower()
     expected_url = f"http://{ip}" if ip else None
 
     for device in dev_reg.devices.values():
-        if (DOMAIN, f"client_{formatted_mac}") in device.identifiers:
+        if _is_own_client_device(device, formatted_mac):
             continue
 
         # 1. Exact MAC match (ESPHome, Tapo, HomeKit, etc.)
@@ -40,12 +47,34 @@ def _find_existing_ha_device(
 
         # 3. Match OpenBeken / MQTT devices via mDNS hostname == MQTT client_id or device name
         if mdns_lower:
-            for ident_domain, ident_val in device.identifiers:
-                if ident_domain == "mqtt" and str(ident_val).lower() == mdns_lower:
+            for ident in device.identifiers:
+                if len(ident) >= 2 and ident[0] == "mqtt" and str(ident[-1]).lower() == mdns_lower:
                     return device
             dev_name = (device.name_by_user or device.name or "").strip().lower()
             if dev_name == mdns_lower:
                 return device
+
+    # 4. Fallback: check if any existing device has an IP diagnostic sensor matching this IP
+    if ip:
+        for entity in ent_reg.entities.values():
+            if entity.domain != "sensor" or not entity.device_id:
+                continue
+            if entity.platform == DOMAIN:
+                continue
+            if not (
+                entity.entity_id.endswith("_ip")
+                or entity.entity_id.endswith("_ip_address")
+                or (entity.original_name or "").strip().lower() in ("ip", "ip address")
+            ):
+                continue
+            state = hass.states.get(entity.entity_id)
+            if state is not None and state.state.strip() == ip:
+                matched_dev = dev_reg.async_get(entity.device_id)
+                if matched_dev is not None and not any(
+                    len(i) >= 2 and i[0] == DOMAIN and str(i[1]).startswith("client_")
+                    for i in matched_dev.identifiers
+                ):
+                    return matched_dev
 
     return None
 
