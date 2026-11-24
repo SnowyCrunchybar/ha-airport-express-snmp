@@ -14,9 +14,9 @@ from .coordinator import AirPortSnmpCoordinator
 
 
 def _is_own_client_device(device: dr.DeviceEntry, formatted_mac: str) -> bool:
-    """Return True if this device is our own AirPort client device."""
+    """Return True if this device is our own standalone AirPort client device."""
     target = (DOMAIN, f"client_{formatted_mac}")
-    return any(ident[:2] == target for ident in device.identifiers)
+    return any(len(ident) >= 2 and tuple(ident[:2]) == target for ident in device.identifiers)
 
 
 def _find_existing_ha_device(
@@ -33,6 +33,8 @@ def _find_existing_ha_device(
 
     for device in dev_reg.devices.values():
         if _is_own_client_device(device, formatted_mac):
+            continue
+        if any(len(ident) >= 2 and ident[0] == DOMAIN for ident in device.identifiers):
             continue
 
         # 1. Exact MAC match (ESPHome, Tapo, HomeKit, etc.)
@@ -54,25 +56,18 @@ def _find_existing_ha_device(
             if dev_name == mdns_lower:
                 return device
 
-    # 4. Fallback: check if any existing device has an IP diagnostic sensor matching this IP
+    # 4. Direct match: check if any non-AirPort sensor entity currently has state == ip
     if ip:
         for entity in ent_reg.entities.values():
             if entity.domain != "sensor" or not entity.device_id:
                 continue
             if entity.platform == DOMAIN:
                 continue
-            if not (
-                entity.entity_id.endswith("_ip")
-                or entity.entity_id.endswith("_ip_address")
-                or (entity.original_name or "").strip().lower() in ("ip", "ip address")
-            ):
-                continue
             state = hass.states.get(entity.entity_id)
             if state is not None and state.state.strip() == ip:
                 matched_dev = dev_reg.async_get(entity.device_id)
                 if matched_dev is not None and not any(
-                    len(i) >= 2 and i[0] == DOMAIN and str(i[1]).startswith("client_")
-                    for i in matched_dev.identifiers
+                    len(i) >= 2 and i[0] == DOMAIN for i in matched_dev.identifiers
                 ):
                     return matched_dev
 
@@ -126,10 +121,7 @@ def build_client_device_info(
     # Merge directly into an existing HA device (ESPHome, OpenBeken, Tapo, etc.)
     existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp, ip)
     if existing is not None:
-        return DeviceInfo(
-            identifiers=existing.identifiers,
-            connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
-        )
+        return DeviceInfo.from_device_entry(existing)
 
     resolved_name = resolve_client_device_name(hass, coordinator, mac)
     dev_reg = dr.async_get(hass)
