@@ -120,8 +120,11 @@ def build_client_device_info(
 
     # Merge directly into an existing HA device (ESPHome, OpenBeken, Tapo, etc.)
     existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp, ip)
-    if existing is not None:
-        return DeviceInfo.from_device_entry(existing)
+    if existing is not None and existing.identifiers:
+        return DeviceInfo(
+            identifiers=existing.identifiers,
+            connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
+        )
 
     resolved_name = resolve_client_device_name(hass, coordinator, mac)
     dev_reg = dr.async_get(hass)
