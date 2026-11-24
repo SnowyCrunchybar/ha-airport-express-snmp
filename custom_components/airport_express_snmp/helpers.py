@@ -13,6 +13,35 @@ from .const import DOMAIN
 from .coordinator import AirPortSnmpCoordinator
 
 
+def _find_existing_ha_device(
+    hass: HomeAssistant,
+    formatted_mac: str,
+    mdns_name: str | None,
+) -> dr.DeviceEntry | None:
+    """Find an existing HA device by MAC connection or OpenBeken/mDNS hostname."""
+    dev_reg = dr.async_get(hass)
+    mdns_lower = (mdns_name or "").strip().lower()
+
+    for device in dev_reg.devices.values():
+        if (DOMAIN, f"client_{formatted_mac}") in device.identifiers:
+            continue
+
+        # 1. Exact MAC match (ESPHome, Tapo, HomeKit, etc.)
+        if (CONNECTION_NETWORK_MAC, formatted_mac) in device.connections:
+            return device
+
+        # 2. Match OpenBeken / MQTT devices via mDNS hostname == MQTT client_id or device name
+        if mdns_lower:
+            for ident_domain, ident_val in device.identifiers:
+                if ident_domain == "mqtt" and str(ident_val).lower() == mdns_lower:
+                    return device
+            dev_name = (device.name_by_user or device.name or "").strip().lower()
+            if dev_name == mdns_lower:
+                return device
+
+    return None
+
+
 def resolve_client_device_name(
     hass: HomeAssistant,
     coordinator: AirPortSnmpCoordinator,
@@ -20,27 +49,20 @@ def resolve_client_device_name(
 ) -> str:
     """Resolve a human-readable device name from HA Registry, mDNS/DHCP, or Vendor."""
     formatted_mac = format_mac(mac)
-    dev_reg = dr.async_get(hass)
-
-    # 1. Check if another integration (e.g. ESPHome, OpenBeken, HomeKit) already registered this MAC
-    for device in dev_reg.devices.values():
-        if (DOMAIN, f"client_{formatted_mac}") in device.identifiers:
-            continue
-        if (CONNECTION_NETWORK_MAC, formatted_mac) in device.connections:
-            existing_name = device.name_by_user or device.name
-            if existing_name and not existing_name.startswith("AirPort Client "):
-                return f"{existing_name} (AirPort)"
-
     client_info = coordinator.known_clients.get(mac, {})
-
-    # 2. Fallback to mDNS or DHCP hostname
     mdns_or_dhcp = (
         client_info.get("mdns_name") or client_info.get("hostname") or ""
     ).strip()
+
+    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp)
+    if existing is not None:
+        existing_name = existing.name_by_user or existing.name
+        if existing_name:
+            return existing_name
+
     if mdns_or_dhcp and mdns_or_dhcp.lower() not in ("unknown", "*"):
         return f"{mdns_or_dhcp} (AirPort)"
 
-    # 3. Fallback to OUI vendor + short MAC suffix
     vendor = (client_info.get("vendor") or "").strip()
     if vendor:
         short_mac = mac[-5:]
@@ -54,12 +76,23 @@ def build_client_device_info(
     coordinator: AirPortSnmpCoordinator,
     mac: str,
 ) -> DeviceInfo:
-    """Build DeviceInfo and update existing Device Registry entry if resolved."""
+    """Attach tracker to an existing HA device if found, or create a client device."""
     formatted_mac = format_mac(mac)
-    resolved_name = resolve_client_device_name(hass, coordinator, mac)
     client_info = coordinator.known_clients.get(mac, {})
+    mdns_or_dhcp = (
+        client_info.get("mdns_name") or client_info.get("hostname") or ""
+    ).strip()
     vendor = client_info.get("vendor")
 
+    # If an existing OpenBeken / ESPHome / Tapo device exists, merge directly into it!
+    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp)
+    if existing is not None:
+        return DeviceInfo(
+            identifiers=existing.identifiers,
+            connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
+        )
+
+    resolved_name = resolve_client_device_name(hass, coordinator, mac)
     dev_reg = dr.async_get(hass)
     existing_ap_dev = dev_reg.async_get_device(
         identifiers={(DOMAIN, f"client_{formatted_mac}")}
