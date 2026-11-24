@@ -61,12 +61,12 @@ def resolve_client_device_name(
             return existing_name
 
     if mdns_or_dhcp and mdns_or_dhcp.lower() not in ("unknown", "*"):
-        return f"{mdns_or_dhcp} (AirPort)"
+        return mdns_or_dhcp
 
     vendor = (client_info.get("vendor") or "").strip()
     if vendor:
         short_mac = mac[-5:]
-        return f"{vendor} {short_mac} (AirPort)"
+        return f"{vendor} {short_mac}"
 
     return f"AirPort Client {mac}"
 
@@ -84,7 +84,7 @@ def build_client_device_info(
     ).strip()
     vendor = client_info.get("vendor")
 
-    # If an existing OpenBeken / ESPHome / Tapo device exists, merge directly into it!
+    # Merge directly into an existing HA device (ESPHome, OpenBeken, Tapo, etc.)
     existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp)
     if existing is not None:
         return DeviceInfo(
