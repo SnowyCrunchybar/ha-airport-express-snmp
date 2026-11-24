@@ -300,6 +300,70 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.community = community
         self._prev_counters: dict[str, tuple[float, int, int]] = {}
         self.known_clients: dict[str, dict[str, Any]] = {}
+        self._vendor_cache: dict[str, str | None] = {}
+        self._mdns_cache: dict[str, tuple[float, str | None]] = {}
+        self._mac_lookup: Any = None
+        self._mac_lookup_initialized = False
+
+    async def _async_lookup_vendor(self, mac: str) -> str | None:
+        """Resolve hardware vendor from MAC OUI locally."""
+        prefix = mac.upper()[:8]
+        if prefix in self._vendor_cache:
+            return self._vendor_cache[prefix]
+
+        if not self._mac_lookup_initialized:
+            self._mac_lookup_initialized = True
+            try:
+                from mac_vendor_lookup import AsyncMacLookup
+
+                lookup = AsyncMacLookup()
+                try:
+                    await lookup.load_vendors()
+                except Exception:
+                    pass
+                self._mac_lookup = lookup
+            except Exception as err:
+                _LOGGER.debug("mac_vendor_lookup unavailable: %s", err)
+
+        vendor: str | None = None
+        if self._mac_lookup is not None:
+            try:
+                vendor = await self._mac_lookup.lookup(mac)
+            except Exception:
+                vendor = None
+
+        self._vendor_cache[prefix] = vendor
+        return vendor
+
+    async def _async_resolve_mdns(self, ip: str | None) -> str | None:
+        """Resolve mDNS / reverse DNS hostname for an IPv4 address with caching."""
+        if not ip:
+            return None
+
+        now = time.monotonic()
+        cached = self._mdns_cache.get(ip)
+        if cached is not None:
+            ts, cached_name = cached
+            ttl = 600.0 if cached_name else 120.0
+            if (now - ts) < ttl:
+                return cached_name
+
+        resolved: str | None = None
+        try:
+            host_info = await asyncio.wait_for(
+                self.hass.async_add_executor_job(socket.gethostbyaddr, ip),
+                timeout=0.8,
+            )
+            raw_name = (host_info[0] or "").strip().rstrip(".")
+            if raw_name and raw_name != ip:
+                if raw_name.endswith(".local"):
+                    raw_name = raw_name[:-6]
+                resolved = raw_name
+        except Exception:
+            resolved = None
+
+        self._mdns_cache[ip] = (now, resolved)
+        return resolved
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch all scalar and table data from AirPort Express."""
@@ -429,13 +493,20 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not mac:
                 continue
             dhcp_info = mac_to_dhcp.get(mac, {})
+            ip = dhcp_info.get("ip")
+            vendor = await self._async_lookup_vendor(mac)
+            mdns_name = await self._async_resolve_mdns(ip)
+            hostname = dhcp_info.get("hostname") or mdns_name
+
             rssi = item.get("rssi_dbm")
             noise = item.get("noise_dbm")
             snr = (rssi - noise) if (rssi is not None and noise is not None) else None
             client_data = {
                 "mac": mac,
-                "ip": dhcp_info.get("ip"),
-                "hostname": dhcp_info.get("hostname"),
+                "ip": ip,
+                "hostname": hostname,
+                "mdns_name": mdns_name,
+                "vendor": vendor,
                 "rssi_dbm": rssi,
                 "noise_dbm": noise,
                 "snr_db": snr,
