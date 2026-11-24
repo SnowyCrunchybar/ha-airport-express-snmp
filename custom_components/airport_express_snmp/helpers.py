@@ -17,10 +17,12 @@ def _find_existing_ha_device(
     hass: HomeAssistant,
     formatted_mac: str,
     mdns_name: str | None,
+    ip: str | None,
 ) -> dr.DeviceEntry | None:
-    """Find an existing HA device by MAC connection or OpenBeken/mDNS hostname."""
+    """Find an existing HA device by MAC, OpenBeken configuration_url, or mDNS name."""
     dev_reg = dr.async_get(hass)
     mdns_lower = (mdns_name or "").strip().lower()
+    expected_url = f"http://{ip}" if ip else None
 
     for device in dev_reg.devices.values():
         if (DOMAIN, f"client_{formatted_mac}") in device.identifiers:
@@ -30,7 +32,13 @@ def _find_existing_ha_device(
         if (CONNECTION_NETWORK_MAC, formatted_mac) in device.connections:
             return device
 
-        # 2. Match OpenBeken / MQTT devices via mDNS hostname == MQTT client_id or device name
+        # 2. Match OpenBeken / web-UI devices via configuration_url (http://10.0.1.x)
+        if expected_url and device.configuration_url:
+            cfg_url = device.configuration_url.rstrip("/")
+            if cfg_url == expected_url:
+                return device
+
+        # 3. Match OpenBeken / MQTT devices via mDNS hostname == MQTT client_id or device name
         if mdns_lower:
             for ident_domain, ident_val in device.identifiers:
                 if ident_domain == "mqtt" and str(ident_val).lower() == mdns_lower:
@@ -53,8 +61,9 @@ def resolve_client_device_name(
     mdns_or_dhcp = (
         client_info.get("mdns_name") or client_info.get("hostname") or ""
     ).strip()
+    ip = client_info.get("ip")
 
-    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp)
+    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp, ip)
     if existing is not None:
         existing_name = existing.name_by_user or existing.name
         if existing_name:
@@ -82,10 +91,11 @@ def build_client_device_info(
     mdns_or_dhcp = (
         client_info.get("mdns_name") or client_info.get("hostname") or ""
     ).strip()
+    ip = client_info.get("ip")
     vendor = client_info.get("vendor")
 
     # Merge directly into an existing HA device (ESPHome, OpenBeken, Tapo, etc.)
-    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp)
+    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp, ip)
     if existing is not None:
         return DeviceInfo(
             identifiers=existing.identifiers,
