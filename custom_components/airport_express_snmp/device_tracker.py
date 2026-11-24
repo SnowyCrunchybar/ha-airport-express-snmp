@@ -80,6 +80,8 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
         return {
             "ip_address": client.get("ip"),
             "hostname": client.get("hostname"),
+            "mdns_name": client.get("mdns_name"),
+            "vendor": client.get("vendor"),
             "rssi_dbm": client.get("rssi_dbm"),
             "noise_dbm": client.get("noise_dbm"),
             "snr_db": client.get("snr_db"),
@@ -87,3 +89,9 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
             "connected_seconds": client.get("connected_seconds"),
             "lease_remaining": client.get("lease_remaining"),
         }
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Refresh Device Registry name/vendor if newly resolved."""
+        build_client_device_info(self.hass, self.coordinator, self._mac)
+        super()._handle_coordinator_update()
