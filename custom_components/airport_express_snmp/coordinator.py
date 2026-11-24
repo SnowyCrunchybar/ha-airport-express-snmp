@@ -323,6 +323,7 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 service_type: str,
                 name: str,
                 state_change: ServiceStateChange,
+                **kwargs: Any,
             ) -> None:
                 if state_change is ServiceStateChange.Removed:
                     return
