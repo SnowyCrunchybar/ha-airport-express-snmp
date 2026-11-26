@@ -38,7 +38,7 @@ from .const import (
     SCOPE_CORE,
 )
 from .coordinator import AirPortSnmpCoordinator
-from .helpers import build_client_device_info
+from .helpers import build_client_device_info, resolve_client_device_name
 
 
 def _ap_device_info(coordinator: AirPortSnmpCoordinator) -> DeviceInfo:
@@ -301,17 +301,29 @@ class AirPortInterfaceSensor(AirPortBaseSensor):
 class AirPortClientDiagnosticSensor(
     CoordinatorEntity[AirPortSnmpCoordinator], SensorEntity
 ):
-    """Base diagnostic sensor attached to an individual Wi-Fi client device."""
+    """Base diagnostic sensor attached to an existing HA device if present."""
 
-    _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
-        self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
+        self,
+        hass: HomeAssistant,
+        coordinator: AirPortSnmpCoordinator,
+        mac: str,
+        metric_label: str,
     ) -> None:
         super().__init__(coordinator)
         self._mac = mac
-        self._attr_device_info = build_client_device_info(hass, coordinator, mac)
+        self._metric_label = metric_label
+        dev_info = build_client_device_info(hass, coordinator, mac)
+        self._attr_device_info = dev_info
+        if dev_info is not None:
+            self._attr_has_entity_name = True
+            self._attr_name = metric_label
+        else:
+            self._attr_has_entity_name = False
+            client_name = resolve_client_device_name(hass, coordinator, mac)
+            self._attr_name = f"{client_name} {metric_label}"
 
     @property
     def available(self) -> bool:
@@ -323,7 +335,6 @@ class AirPortClientDiagnosticSensor(
 class AirPortClientRssiSensor(AirPortClientDiagnosticSensor):
     """Wi-Fi RSSI signal strength sensor for a connected client."""
 
-    _attr_name = "Wi-Fi Signal (RSSI)"
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
     _attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -331,7 +342,7 @@ class AirPortClientRssiSensor(AirPortClientDiagnosticSensor):
     def __init__(
         self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
     ) -> None:
-        super().__init__(hass, coordinator, mac)
+        super().__init__(hass, coordinator, mac, "Wi-Fi Signal (RSSI)")
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_rssi"
 
@@ -344,7 +355,6 @@ class AirPortClientRssiSensor(AirPortClientDiagnosticSensor):
 class AirPortClientSnrSensor(AirPortClientDiagnosticSensor):
     """Wi-Fi Signal-to-Noise Ratio (SNR) sensor for a connected client."""
 
-    _attr_name = "Wi-Fi SNR"
     _attr_native_unit_of_measurement = "dB"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:signal-cellular-3"
@@ -352,7 +362,7 @@ class AirPortClientSnrSensor(AirPortClientDiagnosticSensor):
     def __init__(
         self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
     ) -> None:
-        super().__init__(hass, coordinator, mac)
+        super().__init__(hass, coordinator, mac, "Wi-Fi SNR")
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_snr"
 
@@ -365,7 +375,6 @@ class AirPortClientSnrSensor(AirPortClientDiagnosticSensor):
 class AirPortClientRateSensor(AirPortClientDiagnosticSensor):
     """Wi-Fi negotiated link rate sensor for a connected client."""
 
-    _attr_name = "Wi-Fi Link Rate"
     _attr_device_class = SensorDeviceClass.DATA_RATE
     _attr_native_unit_of_measurement = UnitOfDataRate.MEGABITS_PER_SECOND
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -374,7 +383,7 @@ class AirPortClientRateSensor(AirPortClientDiagnosticSensor):
     def __init__(
         self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
     ) -> None:
-        super().__init__(hass, coordinator, mac)
+        super().__init__(hass, coordinator, mac, "Wi-Fi Link Rate")
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_rate"
 
@@ -387,14 +396,13 @@ class AirPortClientRateSensor(AirPortClientDiagnosticSensor):
 class AirPortClientIpSensor(AirPortClientDiagnosticSensor):
     """DHCP IP address sensor for a connected client (disabled by default)."""
 
-    _attr_name = "IP Address"
     _attr_icon = "mdi:ip-network"
     _attr_entity_registry_enabled_default = False
 
     def __init__(
         self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
     ) -> None:
-        super().__init__(hass, coordinator, mac)
+        super().__init__(hass, coordinator, mac, "IP Address")
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}_ip"
 
