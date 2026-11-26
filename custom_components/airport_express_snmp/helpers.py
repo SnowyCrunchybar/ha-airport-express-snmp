@@ -1,6 +1,8 @@
 """Device naming and registry helpers for AirPort Express SNMP."""
 from __future__ import annotations
 
+import re
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import (
@@ -13,14 +15,17 @@ from .const import DOMAIN
 from .coordinator import AirPortSnmpCoordinator
 
 _GENERIC_NAMES = {"wlan0", "lwip0", "tuya", "unknown", "*"}
+_HEX_ID_RE = re.compile(r"^[0-9a-f]{16,}$", re.IGNORECASE)
 
 
 def _clean_device_name(name: str | None) -> str | None:
-    """Return a usable device name or None if empty or generic."""
+    """Return a usable device name or None if empty, generic, or a long hex ID."""
     cleaned = (name or "").strip()
     if cleaned.endswith(" (AirPort)"):
         cleaned = cleaned[:-10].strip()
     if not cleaned or cleaned.lower() in _GENERIC_NAMES:
+        return None
+    if _HEX_ID_RE.match(cleaned):
         return None
     return cleaned
 
@@ -232,14 +237,23 @@ def build_client_device_info(
     coordinator: AirPortSnmpCoordinator,
     mac: str,
 ) -> DeviceInfo:
-    """Create a dedicated HA device for the Wi-Fi client under this integration."""
+    """Create a dedicated HA device and link shared identifiers if matched."""
     formatted_mac = format_mac(mac)
     clean_mac = mac.replace(":", "").lower()
     label = resolve_client_label(hass, coordinator, mac)
     client_info = coordinator.known_clients.get(mac, {})
+    mdns_or_dhcp = (
+        client_info.get("mdns_name") or client_info.get("hostname") or ""
+    ).strip()
+    ip = client_info.get("ip")
+
+    identifiers = {(DOMAIN, f"{coordinator.host}_client_{clean_mac}")}
+    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp, ip)
+    if existing is not None and existing.identifiers:
+        identifiers = identifiers | set(existing.identifiers)
 
     return DeviceInfo(
-        identifiers={(DOMAIN, f"{coordinator.host}_client_{clean_mac}")},
+        identifiers=identifiers,
         connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
         name=label,
         manufacturer=client_info.get("vendor") or None,
