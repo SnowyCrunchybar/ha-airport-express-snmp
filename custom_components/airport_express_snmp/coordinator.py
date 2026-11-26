@@ -117,8 +117,7 @@ def _decode_value(tag: int, raw: bytes) -> Any:
     if tag == 0x04:
         try:
             text = raw.decode("utf-8")
-            if all(32 <= ord(ch) <= 126 or ch in "
-	" for ch in text):
+            if all(32 <= ord(ch) <= 126 or ch in "\r\n\t" for ch in text):
                 return text
         except UnicodeDecodeError:
             pass
