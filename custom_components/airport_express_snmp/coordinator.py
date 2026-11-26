@@ -304,54 +304,6 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._ip_to_mdns: dict[str, str] = {}
         self._mac_lookup: Any = None
         self._mac_lookup_initialized = False
-        self._zc_browser: Any = None
-
-    async def _async_ensure_zc_browser(self) -> None:
-        """Start a lightweight Zeroconf browser on HA's shared Zeroconf instance."""
-        if self._zc_browser is not None:
-            return
-        try:
-            from homeassistant.components import zeroconf
-            from zeroconf import ServiceStateChange
-            from zeroconf.asyncio import AsyncServiceBrowser
-
-            aiozc = await zeroconf.async_get_async_instance(self.hass)
-            zc = aiozc.zeroconf
-
-            def _on_service_state_change(
-                zeroconf: Any,
-                service_type: str,
-                name: str,
-                state_change: ServiceStateChange,
-                **kwargs: Any,
-            ) -> None:
-                if state_change is ServiceStateChange.Removed:
-                    return
-                info = zeroconf.get_service_info(service_type, name, timeout=0)
-                if info is None:
-                    return
-                server = (info.server or "").rstrip(".")
-                if server.endswith(".local"):
-                    server = server[:-6]
-                if not server:
-                    return
-                for addr in info.parsed_addresses():
-                    if ":" not in addr:
-                        self._ip_to_mdns[addr] = server
-
-            self._zc_browser = AsyncServiceBrowser(
-                zc,
-                [
-                    "_http._tcp.local.",
-                    "_esphomelib._tcp.local.",
-                    "_hap._tcp.local.",
-                    "_airplay._tcp.local.",
-                    "_companion-link._tcp.local.",
-                ],
-                handlers=[_on_service_state_change],
-            )
-        except Exception as err:
-            _LOGGER.debug("Zeroconf browser setup skipped: %s", err)
 
     async def _async_lookup_vendor(self, mac: str) -> str | None:
         """Resolve hardware vendor from MAC OUI locally."""
@@ -383,42 +335,40 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._vendor_cache[prefix] = vendor
         return vendor
 
-    async def _async_resolve_mdns(self, ip: str | None) -> str | None:
-        """Resolve mDNS hostname from HA Zeroconf cache."""
-        if not ip:
-            return None
-
-        if ip in self._ip_to_mdns:
-            return self._ip_to_mdns[ip]
-
+    async def _async_refresh_mdns_cache(self) -> None:
+        """Scan HA's shared Zeroconf cache for .local A records without blocking."""
         try:
             from homeassistant.components import zeroconf
             from zeroconf import const as zc_const
 
             aiozc = await zeroconf.async_get_async_instance(self.hass)
             zc = aiozc.zeroconf
-            packed_ip = socket.inet_aton(ip)
             for name, records in list(zc.cache.cache.items()):
                 if not name.endswith(".local."):
                     continue
+                clean = name.rstrip(".")
+                if clean.endswith(".local"):
+                    clean = clean[:-6]
+                if not clean:
+                    continue
                 for rec in records:
-                    if (
-                        getattr(rec, "type", None) == zc_const._TYPE_A
-                        and getattr(rec, "address", None) == packed_ip
-                    ):
-                        clean = name.rstrip(".")
-                        if clean.endswith(".local"):
-                            clean = clean[:-6]
-                        self._ip_to_mdns[ip] = clean
-                        return clean
-        except Exception:
-            pass
+                    if getattr(rec, "type", None) == zc_const._TYPE_A:
+                        addr_bytes = getattr(rec, "address", None)
+                        if isinstance(addr_bytes, bytes) and len(addr_bytes) == 4:
+                            ip_str = socket.inet_ntoa(addr_bytes)
+                            self._ip_to_mdns[ip_str] = clean
+        except Exception as err:
+            _LOGGER.debug("Zeroconf cache scan skipped: %s", err)
 
-        return None
+    async def _async_resolve_mdns(self, ip: str | None) -> str | None:
+        """Resolve mDNS hostname from HA Zeroconf cache."""
+        if not ip:
+            return None
+        return self._ip_to_mdns.get(ip)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch all scalar and table data from AirPort Express."""
-        await self._async_ensure_zc_browser()
+        await self._async_refresh_mdns_cache()
         now = time.monotonic()
 
         scalars = await _snmp_get(
