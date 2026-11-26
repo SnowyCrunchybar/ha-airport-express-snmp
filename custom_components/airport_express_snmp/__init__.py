@@ -21,9 +21,7 @@ def _cleanup_orphaned_client_devices(hass: HomeAssistant, entry: ConfigEntry) ->
     """Remove empty legacy client devices that no longer have any entities."""
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
-    for device in list(dev_reg.devices.values()):
-        if entry.entry_id not in device.config_entries:
-            continue
+    for device in list(dr.async_entries_for_config_entry(dev_reg, entry.entry_id)):
         is_legacy_client = any(
             len(ident) >= 2 and ident[0] == DOMAIN and str(ident[1]).startswith("client_")
             for ident in device.identifiers

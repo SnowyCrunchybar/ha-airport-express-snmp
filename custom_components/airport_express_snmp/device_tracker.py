@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.device_tracker import SourceType
-from homeassistant.components.device_tracker.config_entry import ScannerEntity
+from homeassistant.components.device_tracker import ScannerEntity, SourceType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -53,11 +53,12 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}"
         dev_info = build_client_device_info(hass, coordinator, mac)
-        self._attr_device_info = dev_info
         if dev_info is not None:
+            self._attr_device_info = dev_info
             self._attr_has_entity_name = True
             self._attr_name = f"Wi-Fi {mac}"
         else:
+            self._attr_device_info = DeviceInfo()
             self._attr_has_entity_name = False
             self._attr_name = resolve_client_device_name(hass, coordinator, mac)
 
@@ -102,7 +103,8 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
             self._attr_device_info = dev_info
             self._attr_has_entity_name = True
             self._attr_name = f"Wi-Fi {self._mac}"
-        elif self._attr_device_info is None:
+        else:
+            self._attr_device_info = DeviceInfo()
             self._attr_has_entity_name = False
             self._attr_name = resolve_client_device_name(
                 self.hass, self.coordinator, self._mac

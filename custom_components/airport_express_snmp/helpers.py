@@ -24,9 +24,26 @@ def _is_own_client_device(device: dr.DeviceEntry, formatted_mac: str) -> bool:
 def _clean_device_name(name: str | None) -> str | None:
     """Return a usable device name or None if empty or generic."""
     cleaned = (name or "").strip()
+    if cleaned.endswith(" (AirPort)"):
+        cleaned = cleaned[:-10].strip()
     if not cleaned or cleaned.lower() in _GENERIC_NAMES:
         return None
     return cleaned
+
+
+def _iter_all_devices(dev_reg: dr.DeviceRegistry) -> list[dr.DeviceEntry]:
+    """Return all DeviceEntry objects without triggering deprecated mapping warnings."""
+    return list(dev_reg.devices.data.values()) if hasattr(dev_reg.devices, "data") else list(dev_reg.devices.values())
+
+
+def _get_device_by_identifier(
+    dev_reg: dr.DeviceRegistry,
+    identifier: tuple[str, str],
+) -> dr.DeviceEntry | None:
+    """Look up a DeviceEntry by a single (domain, id) identifier tuple."""
+    if hasattr(dev_reg, "async_get_device_by_identifier"):
+        return dev_reg.async_get_device_by_identifier(identifier)
+    return dev_reg.async_get_device(identifiers={identifier})
 
 
 def _find_localtuya_device(
@@ -43,9 +60,7 @@ def _find_localtuya_device(
         if isinstance(devices, dict):
             for dev_id, cfg in devices.items():
                 if isinstance(cfg, dict) and str(cfg.get("host", "")).strip() == ip:
-                    dev = dev_reg.async_get_device(
-                        identifiers={("localtuya", str(dev_id))}
-                    )
+                    dev = _get_device_by_identifier(dev_reg, ("localtuya", str(dev_id)))
                     if dev is not None:
                         return dev
 
@@ -54,9 +69,7 @@ def _find_localtuya_device(
         ).strip()
         dev_id = entry.data.get("device_id") or entry.options.get("device_id")
         if entry_host == ip and dev_id:
-            dev = dev_reg.async_get_device(
-                identifiers={("localtuya", str(dev_id))}
-            )
+            dev = _get_device_by_identifier(dev_reg, ("localtuya", str(dev_id)))
             if dev is not None:
                 return dev
 
@@ -89,9 +102,7 @@ def _find_tuya_local_device(
             or entry.unique_id
         )
         if dev_id:
-            dev = dev_reg.async_get_device(
-                identifiers={("tuya_local", str(dev_id))}
-            )
+            dev = _get_device_by_identifier(dev_reg, ("tuya_local", str(dev_id)))
             if dev is not None:
                 return dev
 
@@ -111,7 +122,7 @@ def _find_existing_ha_device(
     mac_compact = formatted_mac.replace(":", "").lower()
     expected_url = f"http://{ip}" if ip else None
 
-    for device in dev_reg.devices.values():
+    for device in _iter_all_devices(dev_reg):
         if _is_own_client_device(device, formatted_mac):
             continue
         if any(len(ident) >= 2 and ident[0] == DOMAIN for ident in device.identifiers):

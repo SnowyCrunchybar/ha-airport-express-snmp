@@ -316,8 +316,8 @@ class AirPortClientDiagnosticSensor(
         self._mac = mac
         self._metric_label = metric_label
         dev_info = build_client_device_info(hass, coordinator, mac)
-        self._attr_device_info = dev_info
         if dev_info is not None:
+            self._attr_device_info = dev_info
             self._attr_has_entity_name = True
             self._attr_name = metric_label
         else:

@@ -319,7 +319,7 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             zc = aiozc.zeroconf
 
             def _on_service_state_change(
-                zeroconf_obj: Any,
+                zeroconf: Any,
                 service_type: str,
                 name: str,
                 state_change: ServiceStateChange,
@@ -327,7 +327,7 @@ class AirPortSnmpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) -> None:
                 if state_change is ServiceStateChange.Removed:
                     return
-                info = zeroconf_obj.get_service_info(service_type, name, timeout=0)
+                info = zeroconf.get_service_info(service_type, name, timeout=0)
                 if info is None:
                     return
                 server = (info.server or "").rstrip(".")
