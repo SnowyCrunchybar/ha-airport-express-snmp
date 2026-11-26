@@ -74,7 +74,7 @@ def _build_snmpv2_packet(
     community: str, pdu_tag: int, req_id: int, oids: list[str]
 ) -> bytes:
     null_tlv = bytes([5, 0])
-    varbinds = b"".join(
+    varbinds = b''.join(
         _ber_tlv(0x30, _ber_oid(oid) + null_tlv) for oid in oids
     )
     pdu = _ber_tlv(

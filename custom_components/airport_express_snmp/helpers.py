@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -28,6 +29,15 @@ def _clean_device_name(name: str | None) -> str | None:
     if _HEX_ID_RE.match(cleaned):
         return None
     return cleaned
+
+
+def _url_matches_ip(url: str | None, ip: str | None) -> bool:
+    """Return True if a device configuration_url points to the given IP (e.g. http://10.0.1.30/index)."""
+    if not url or not ip:
+        return False
+    raw = url.strip()
+    parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+    return (parsed.hostname or "").strip() == ip
 
 
 def _iter_all_devices(hass: HomeAssistant, dev_reg: dr.DeviceRegistry) -> list[dr.DeviceEntry]:
@@ -141,7 +151,6 @@ def _find_existing_ha_device(
     ent_reg = er.async_get(hass)
     mdns_lower = (mdns_name or "").strip().lower()
     mac_compact = formatted_mac.replace(":", "").lower()
-    expected_url = f"http://{ip}" if ip else None
 
     for device in _iter_all_devices(hass, dev_reg):
         if any(len(ident) >= 2 and ident[0] == DOMAIN for ident in device.identifiers):
@@ -151,18 +160,17 @@ def _find_existing_ha_device(
         if (CONNECTION_NETWORK_MAC, formatted_mac) in device.connections:
             return device
 
-        # 2. Match OpenBeken / web-UI devices via configuration_url (http://10.0.1.x)
-        if expected_url and device.configuration_url:
-            if device.configuration_url.rstrip("/") == expected_url:
-                return device
+        # 2. Match OpenBeken / MQTT / web-UI devices via configuration_url hostname (e.g. http://10.0.1.30/index)
+        if _url_matches_ip(device.configuration_url, ip):
+            return device
 
-        # 3. Match OpenBeken / MQTT devices via mDNS hostname == MQTT client_id or device name
+        # 3. Match OpenBeken / MQTT devices via mDNS hostname == MQTT identifier or device name
         if mdns_lower and mdns_lower not in _GENERIC_NAMES:
             for ident in device.identifiers:
                 if (
                     len(ident) >= 2
                     and ident[0] == "mqtt"
-                    and str(ident[-1]).lower() == mdns_lower
+                    and str(ident[-1]).strip().lower() == mdns_lower
                 ):
                     return device
             dev_name = (device.name_by_user or device.name or "").strip().lower()
@@ -178,7 +186,7 @@ def _find_existing_ha_device(
     if tuya_local_dev is not None:
         return tuya_local_dev
 
-    # 5. Match MQTT / Tuya / IP sensor entities via MAC or IP
+    # 5. Match MQTT (e.g. sensor.sohva_ip == "10.0.1.30") / Tuya / IP entities via MAC or IP
     for entity in ent_reg.entities.values():
         if not entity.device_id or entity.platform == DOMAIN:
             continue
@@ -196,7 +204,10 @@ def _find_existing_ha_device(
 
         if attr_mac and attr_mac == mac_compact:
             return matched_dev
-        if ip and (attr_ip == ip or (entity.domain == "sensor" and state_val == ip)):
+        if ip and (
+            attr_ip == ip
+            or (entity.domain == "sensor" and state_val == ip)
+        ):
             return matched_dev
 
     return None
