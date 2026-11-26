@@ -17,7 +17,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo, format_mac
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -38,7 +38,7 @@ from .const import (
     SCOPE_CORE,
 )
 from .coordinator import AirPortSnmpCoordinator
-from .helpers import build_client_device_info, resolve_client_device_name
+from .helpers import build_client_device_info, resolve_client_label
 
 
 def _ap_device_info(coordinator: AirPortSnmpCoordinator) -> DeviceInfo:
@@ -314,22 +314,33 @@ class AirPortClientDiagnosticSensor(
     ) -> None:
         super().__init__(coordinator)
         self._mac = mac
+        self._formatted_mac = format_mac(mac)
         self._metric_label = metric_label
-        dev_info = build_client_device_info(hass, coordinator, mac)
+        self._apply_identity(hass)
+
+    def _apply_identity(self, hass: HomeAssistant) -> None:
+        dev_info = build_client_device_info(hass, self.coordinator, self._mac)
+        client_label = resolve_client_label(hass, self.coordinator, self._mac)
         if dev_info is not None:
             self._attr_device_info = dev_info
             self._attr_has_entity_name = True
-            self._attr_name = metric_label
+            self._attr_name = f"{self._metric_label} ({self._formatted_mac})"
         else:
+            self._attr_device_info = DeviceInfo()
             self._attr_has_entity_name = False
-            client_name = resolve_client_device_name(hass, coordinator, mac)
-            self._attr_name = f"{client_name} {metric_label}"
+            self._attr_name = f"{client_label} {self._metric_label}"
 
     @property
     def available(self) -> bool:
         return super().available and (
             self._mac in self.coordinator.data.get("active_clients", {})
         )
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Refresh device attachment or resolved entity name."""
+        self._apply_identity(self.hass)
+        super()._handle_coordinator_update()
 
 
 class AirPortClientRssiSensor(AirPortClientDiagnosticSensor):

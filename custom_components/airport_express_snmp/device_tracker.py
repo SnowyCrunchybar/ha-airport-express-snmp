@@ -6,13 +6,13 @@ from typing import Any
 from homeassistant.components.device_tracker import ScannerEntity, SourceType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo, format_mac
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_TRACK_CLIENTS, DEFAULT_TRACK_CLIENTS, DOMAIN
 from .coordinator import AirPortSnmpCoordinator
-from .helpers import build_client_device_info, resolve_client_device_name
+from .helpers import build_client_device_info, resolve_client_label
 
 
 async def async_setup_entry(
@@ -50,17 +50,22 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
     ) -> None:
         super().__init__(coordinator)
         self._mac = mac
+        self._formatted_mac = format_mac(mac)
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}"
-        dev_info = build_client_device_info(hass, coordinator, mac)
+        self._apply_identity(hass)
+
+    def _apply_identity(self, hass: HomeAssistant) -> None:
+        dev_info = build_client_device_info(hass, self.coordinator, self._mac)
+        label = resolve_client_label(hass, self.coordinator, self._mac)
         if dev_info is not None:
             self._attr_device_info = dev_info
             self._attr_has_entity_name = True
-            self._attr_name = f"Wi-Fi {mac}"
+            self._attr_name = f"Wi-Fi {self._formatted_mac}"
         else:
             self._attr_device_info = DeviceInfo()
             self._attr_has_entity_name = False
-            self._attr_name = resolve_client_device_name(hass, coordinator, mac)
+            self._attr_name = label
 
     @property
     def source_type(self) -> SourceType:
@@ -97,16 +102,6 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Refresh device attachment or resolved standalone entity name."""
-        dev_info = build_client_device_info(self.hass, self.coordinator, self._mac)
-        if dev_info is not None:
-            self._attr_device_info = dev_info
-            self._attr_has_entity_name = True
-            self._attr_name = f"Wi-Fi {self._mac}"
-        else:
-            self._attr_device_info = DeviceInfo()
-            self._attr_has_entity_name = False
-            self._attr_name = resolve_client_device_name(
-                self.hass, self.coordinator, self._mac
-            )
+        """Refresh device attachment or resolved entity name."""
+        self._apply_identity(self.hass)
         super()._handle_coordinator_update()

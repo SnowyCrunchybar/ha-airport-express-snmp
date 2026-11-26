@@ -124,7 +124,6 @@ def _find_tuya_local_device(
             if dev is not None:
                 return dev
 
-        # Fallback: single-device config entry with one device in registry
         entry_devices = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)
         if len(entry_devices) == 1:
             return entry_devices[0]
@@ -206,12 +205,12 @@ def _find_existing_ha_device(
     return None
 
 
-def resolve_client_device_name(
+def resolve_client_label(
     hass: HomeAssistant,
     coordinator: AirPortSnmpCoordinator,
     mac: str,
 ) -> str:
-    """Resolve a human-readable device name from HA Registry, mDNS/DHCP, or Vendor."""
+    """Resolve a stable client label using MAC, device name, or mDNS/DHCP/vendor."""
     formatted_mac = format_mac(mac)
     client_info = coordinator.known_clients.get(mac, {})
     mdns_or_dhcp = (
@@ -223,16 +222,15 @@ def resolve_client_device_name(
     if existing is not None:
         existing_name = _clean_device_name(existing.name_by_user or existing.name)
         if existing_name:
-            return existing_name
+            return f"{existing_name} ({formatted_mac})"
 
     clean_mdns = _clean_device_name(mdns_or_dhcp)
     if clean_mdns:
-        return clean_mdns
+        return f"{clean_mdns} ({formatted_mac})"
 
     vendor = (client_info.get("vendor") or "").strip()
     if vendor:
-        short_mac = mac[-5:]
-        return f"{vendor} {short_mac}"
+        return f"{vendor} ({formatted_mac})"
 
     return formatted_mac
 
