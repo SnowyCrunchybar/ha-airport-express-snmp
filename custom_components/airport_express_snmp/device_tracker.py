@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_TRACK_CLIENTS, DEFAULT_TRACK_CLIENTS, DOMAIN
 from .coordinator import AirPortSnmpCoordinator
-from .helpers import build_client_device_info
+from .helpers import build_client_device_info, resolve_client_device_name
 
 
 async def async_setup_entry(
@@ -43,9 +43,7 @@ async def async_setup_entry(
 
 
 class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEntity):
-    """Represent a Wi-Fi client linked via MAC address to its HA device."""
-
-    _attr_has_entity_name = True
+    """Represent a Wi-Fi client linked via MAC address to its HA device if present."""
 
     def __init__(
         self, hass: HomeAssistant, coordinator: AirPortSnmpCoordinator, mac: str
@@ -54,8 +52,14 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
         self._mac = mac
         clean_mac = mac.replace(":", "").lower()
         self._attr_unique_id = f"{coordinator.host}_client_{clean_mac}"
-        self._attr_name = f"Wi-Fi {mac}"
-        self._attr_device_info = build_client_device_info(hass, coordinator, mac)
+        dev_info = build_client_device_info(hass, coordinator, mac)
+        self._attr_device_info = dev_info
+        if dev_info is not None:
+            self._attr_has_entity_name = True
+            self._attr_name = f"Wi-Fi {mac}"
+        else:
+            self._attr_has_entity_name = False
+            self._attr_name = resolve_client_device_name(hass, coordinator, mac)
 
     @property
     def source_type(self) -> SourceType:
@@ -92,6 +96,15 @@ class AirPortClientTracker(CoordinatorEntity[AirPortSnmpCoordinator], ScannerEnt
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Refresh Device Registry name/vendor if newly resolved."""
-        build_client_device_info(self.hass, self.coordinator, self._mac)
+        """Refresh device attachment or resolved standalone entity name."""
+        dev_info = build_client_device_info(self.hass, self.coordinator, self._mac)
+        if dev_info is not None:
+            self._attr_device_info = dev_info
+            self._attr_has_entity_name = True
+            self._attr_name = f"Wi-Fi {self._mac}"
+        elif self._attr_device_info is None:
+            self._attr_has_entity_name = False
+            self._attr_name = resolve_client_device_name(
+                self.hass, self.coordinator, self._mac
+            )
         super()._handle_coordinator_update()
