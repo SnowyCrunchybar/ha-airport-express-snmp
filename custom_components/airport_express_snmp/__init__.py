@@ -18,15 +18,15 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.DEVICE_TRACKER]
 
 
 def _cleanup_orphaned_client_devices(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove empty legacy client devices that no longer have any entities."""
+    """Remove empty client devices that no longer have any entities."""
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
     for device in list(dr.async_entries_for_config_entry(dev_reg, entry.entry_id)):
-        is_legacy_client = any(
-            len(ident) >= 2 and ident[0] == DOMAIN and str(ident[1]).startswith("client_")
+        is_client_device = any(
+            len(ident) >= 2 and ident[0] == DOMAIN and "_client_" in str(ident[1])
             for ident in device.identifiers
         )
-        if not is_legacy_client:
+        if not is_client_device:
             continue
         if not er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True):
             dev_reg.async_remove_device(device.id)

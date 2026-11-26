@@ -17,7 +17,6 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo, format_mac
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -38,19 +37,19 @@ from .const import (
     SCOPE_CORE,
 )
 from .coordinator import AirPortSnmpCoordinator
-from .helpers import build_client_device_info, resolve_client_label
+from .helpers import build_client_device_info
 
 
-def _ap_device_info(coordinator: AirPortSnmpCoordinator) -> DeviceInfo:
+def _ap_device_info(coordinator: AirPortSnmpCoordinator) -> dict[str, Any]:
     data = coordinator.data
-    return DeviceInfo(
-        identifiers={(DOMAIN, coordinator.host)},
-        name=data.get("name", "AirPort Express"),
-        manufacturer="Apple",
-        model=f"AirPort Express A1392 (ID {data.get('model_id', '1771')})",
-        sw_version=data.get("firmware", "7.8.1"),
-        configuration_url=f"http://{coordinator.host}",
-    )
+    return {
+        "identifiers": {(DOMAIN, coordinator.host)},
+        "name": data.get("name", "AirPort Express"),
+        "manufacturer": "Apple",
+        "model": f"AirPort Express A1392 (ID {data.get('model_id', '1771')})",
+        "sw_version": data.get("firmware", "7.8.1"),
+        "configuration_url": f"http://{coordinator.host}",
+    }
 
 
 async def async_setup_entry(
@@ -301,9 +300,10 @@ class AirPortInterfaceSensor(AirPortBaseSensor):
 class AirPortClientDiagnosticSensor(
     CoordinatorEntity[AirPortSnmpCoordinator], SensorEntity
 ):
-    """Base diagnostic sensor attached to an existing HA device if present."""
+    """Base diagnostic sensor attached to the client's own HA device."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -314,21 +314,8 @@ class AirPortClientDiagnosticSensor(
     ) -> None:
         super().__init__(coordinator)
         self._mac = mac
-        self._formatted_mac = format_mac(mac)
-        self._metric_label = metric_label
-        self._apply_identity(hass)
-
-    def _apply_identity(self, hass: HomeAssistant) -> None:
-        dev_info = build_client_device_info(hass, self.coordinator, self._mac)
-        client_label = resolve_client_label(hass, self.coordinator, self._mac)
-        if dev_info is not None:
-            self._attr_device_info = dev_info
-            self._attr_has_entity_name = True
-            self._attr_name = f"{self._metric_label} ({self._formatted_mac})"
-        else:
-            self._attr_device_info = DeviceInfo()
-            self._attr_has_entity_name = False
-            self._attr_name = f"{client_label} {self._metric_label}"
+        self._attr_name = metric_label
+        self._attr_device_info = build_client_device_info(hass, self.coordinator, self._mac)
 
     @property
     def available(self) -> bool:
@@ -338,8 +325,10 @@ class AirPortClientDiagnosticSensor(
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Refresh device attachment or resolved entity name."""
-        self._apply_identity(self.hass)
+        """Refresh dedicated client device metadata on coordinator update."""
+        self._attr_device_info = build_client_device_info(
+            self.hass, self.coordinator, self._mac
+        )
         super()._handle_coordinator_update()
 
 

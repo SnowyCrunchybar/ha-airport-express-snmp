@@ -15,12 +15,6 @@ from .coordinator import AirPortSnmpCoordinator
 _GENERIC_NAMES = {"wlan0", "lwip0", "tuya", "unknown", "*"}
 
 
-def _is_own_client_device(device: dr.DeviceEntry, formatted_mac: str) -> bool:
-    """Return True if this device is a legacy standalone AirPort client device."""
-    target = (DOMAIN, f"client_{formatted_mac}")
-    return any(len(ident) >= 2 and tuple(ident[:2]) == target for ident in device.identifiers)
-
-
 def _clean_device_name(name: str | None) -> str | None:
     """Return a usable device name or None if empty or generic."""
     cleaned = (name or "").strip()
@@ -145,8 +139,6 @@ def _find_existing_ha_device(
     expected_url = f"http://{ip}" if ip else None
 
     for device in _iter_all_devices(hass, dev_reg):
-        if _is_own_client_device(device, formatted_mac):
-            continue
         if any(len(ident) >= 2 and ident[0] == DOMAIN for ident in device.identifiers):
             continue
 
@@ -210,7 +202,7 @@ def resolve_client_label(
     coordinator: AirPortSnmpCoordinator,
     mac: str,
 ) -> str:
-    """Resolve a stable client label using MAC, device name, or mDNS/DHCP/vendor."""
+    """Resolve a clean client label using existing HA device name, mDNS/DHCP, or vendor."""
     formatted_mac = format_mac(mac)
     client_info = coordinator.known_clients.get(mac, {})
     mdns_or_dhcp = (
@@ -239,20 +231,17 @@ def build_client_device_info(
     hass: HomeAssistant,
     coordinator: AirPortSnmpCoordinator,
     mac: str,
-) -> DeviceInfo | None:
-    """Attach tracker only to an existing HA device; do not create new client devices."""
+) -> DeviceInfo:
+    """Create a dedicated HA device for the Wi-Fi client under this integration."""
     formatted_mac = format_mac(mac)
+    clean_mac = mac.replace(":", "").lower()
+    label = resolve_client_label(hass, coordinator, mac)
     client_info = coordinator.known_clients.get(mac, {})
-    mdns_or_dhcp = (
-        client_info.get("mdns_name") or client_info.get("hostname") or ""
-    ).strip()
-    ip = client_info.get("ip")
 
-    existing = _find_existing_ha_device(hass, formatted_mac, mdns_or_dhcp, ip)
-    if existing is not None and existing.identifiers:
-        return DeviceInfo(
-            identifiers=existing.identifiers,
-            connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
-        )
-
-    return None
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{coordinator.host}_client_{clean_mac}")},
+        connections={(CONNECTION_NETWORK_MAC, formatted_mac)},
+        name=label,
+        manufacturer=client_info.get("vendor") or None,
+        via_device=(DOMAIN, coordinator.host),
+    )

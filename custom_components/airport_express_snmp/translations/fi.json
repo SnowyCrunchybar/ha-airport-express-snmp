@@ -18,7 +18,7 @@
           "include_system": "Tukiaseman yleiset tiedot (käyttöaika, Wi-Fi-asiakkaat, DHCP-vuokrat)",
           "include_rates": "Liitäntöjen siirtonopeudet (Mbit/s lataus & lähetys)",
           "include_traffic_totals": "Liitäntöjen kokonaisliikenne (tavua), tila ja virhepaketit",
-          "track_clients": "Laitteiden läsnäoloseuranta (device_tracker MAC-osoitteella)",
+          "track_clients": "Laitteiden läsnäoloseuranta (oma nimetty laite per asiakas AirPort Expressin kautta)",
           "include_client_diagnostics": "Laitteiden tekniset Wi-Fi-tiedot (RSSI, SNR, linkkinopeus ja valinnainen IP)"
         }
       }
@@ -42,7 +42,7 @@
           "include_system": "Tukiaseman yleiset tiedot (käyttöaika, Wi-Fi-asiakkaat, DHCP-vuokrat)",
           "include_rates": "Liitäntöjen siirtonopeudet (Mbit/s lataus & lähetys)",
           "include_traffic_totals": "Liitäntöjen kokonaisliikenne (tavua), tila ja virhepaketit",
-          "track_clients": "Laitteiden läsnäoloseuranta (device_tracker MAC-osoitteella)",
+          "track_clients": "Laitteiden läsnäoloseuranta (oma nimetty laite per asiakas AirPort Expressin kautta)",
           "include_client_diagnostics": "Laitteiden tekniset Wi-Fi-tiedot (RSSI, SNR, linkkinopeus ja valinnainen IP)"
         }
       }
